@@ -21,8 +21,8 @@ IMAP_SERVER = "imap.gmail.com"
 IMAP_PORT = 993
 
 # Gmail account credentials
-GMAIL_ADDRESS = "ciyucatcancun@gmail.com"
-GMAIL_PASSWORD = "****"
+GMAIL_ADDRESS = "test11037271@gmail.com"
+GMAIL_PASSWORD = "ucqr ghnn thdy lnec"
 
 class Email:
     def __init__(self, sender, recipient, subject, body, signature=None):
@@ -58,10 +58,8 @@ def send_email_with_valid_signature(email_obj, private_key_path):
     msg['Subject'] = email_obj.subject
     msg.attach(MIMEText(email_obj.body, 'plain'))
 
-    # Sign the email content
     signature = sign_email(email_obj, private_key_path)
 
-    # Attach the signature as a separate part
     signature_part = MIMEBase('application', 'pkcs7-signature')
     signature_part.set_payload(signature)
     encoders.encode_base64(signature_part)
@@ -87,10 +85,8 @@ def send_email_with_invalid_signature(email_obj, private_key_path):
     msg['Subject'] = email_obj.subject
     msg.attach(MIMEText(email_obj.body, 'plain'))
 
-    # Generate fake signature
     fake_signature = generate_fake_signature()
 
-    # Attach the fake signature as a separate part
     signature_part = MIMEBase('application', 'pkcs7-signature')
     signature_part.set_payload(fake_signature)
     encoders.encode_base64(signature_part)
@@ -131,7 +127,7 @@ def generate_key_pair():
 
 def verify_email_signature(email_obj, public_key):
     if email_obj.signature is None:
-        return False  # Return False if signature is not present
+        return False  
     message = f"Subject: {email_obj.subject}\n\n{email_obj.body}".encode()
     try:
         public_key.verify(
@@ -144,8 +140,7 @@ def verify_email_signature(email_obj, public_key):
             hashes.SHA256()
         )
         return True  # Signature verification successful
-    except Exception as e:
-        print("Signature verification failed:", e)
+    except Exception:
         return False  # Signature verification failed
 
 def receive_email():
@@ -155,6 +150,31 @@ def receive_email():
     result, data = mail.search(None, 'UNSEEN')
     email_list = []
     for email_id in data[0].split():
+        result, data = mail.fetch(email_id, '(RFC822)')
+        raw_email = data[0][1]
+        email_message = email.message_from_bytes(raw_email)
+        sender = email.utils.parseaddr(email_message['From'])[1]
+        subject = email_message['Subject']
+        body = None
+        signature = None
+        for part in email_message.walk():
+            if part is not None:
+                if part.get_content_type() == "text/plain":
+                    body = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8')
+                elif part.get_filename() == "signature.p7s":
+                    # Read the signature bytes
+                    signature = part.get_payload(decode=True)
+        email_obj = Email(sender=sender, recipient=GMAIL_ADDRESS, subject=subject, body=body, signature=signature)
+        email_list.append(email_obj)
+    return email_list
+
+def receive_email1():
+    mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+    mail.login(GMAIL_ADDRESS, GMAIL_PASSWORD)
+    mail.select('"[Gmail]/Sent Mail"')  
+    result, data = mail.search(None, 'ALL')
+    email_list = []
+    for email_id in data[0].split()[-5:]:
         result, data = mail.fetch(email_id, '(RFC822)')
         raw_email = data[0][1]
         email_message = email.message_from_bytes(raw_email)
@@ -188,18 +208,18 @@ if __name__ == "__main__":
 
     valid_email_with_valid_signature = Email(
         sender=GMAIL_ADDRESS,
-        recipient="ciyucatcancun@gmail.com",
-        subject="Valid Email with Valid Signature",
-        body="This is a valid email with a valid digital signature."
+        recipient="test11037271@gmail.com",
+        subject="Email with Valid Signature",
+        body="This is a email with a valid digital signature."
     )
     send_email_with_valid_signature(valid_email_with_valid_signature, os.path.join(os.getcwd(), "private_key.pem"))
-    print("Sending valid email with valid signature")
+    print("Sending email with valid signature")
 
     valid_email_with_invalid_signature = Email(
         sender=GMAIL_ADDRESS,
-        recipient="ciyucatcancun@gmail.com",
-        subject="Valid Email with invalid Signature",
-        body="This is a valid email with a valid digital signature."
+        recipient="test11037271@gmail.com",
+        subject="Email with invalid Signature",
+        body="This is a email with a valid digital signature."
     )
     send_email_with_invalid_signature(valid_email_with_invalid_signature, os.path.join(os.getcwd(), "private_key.pem"))
     print("Sending valid email with invalid signature")
@@ -207,12 +227,12 @@ if __name__ == "__main__":
 
     valid_email_with_no_signature = Email(
         sender=GMAIL_ADDRESS,
-        recipient="ciyucatcancun@gmail.com",
-        subject="Valid Email with no Signature",
-        body="This is a valid email with no digital signature."
+        recipient="test11037271@gmail.com",
+        subject="Email with no Signature",
+        body="This is a email with no digital signature."
     )
     send_email_with_no_signature(valid_email_with_no_signature)
-    print("Sending valid email with no signature")
+    print("Sending email with no signature")
 
     # Receive emails and verify their signatures
     received_emails = receive_email()
@@ -220,4 +240,21 @@ if __name__ == "__main__":
         if verify_email_signature(email_obj, public_key):
             print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} is valid.")
         else:
-            print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} is invalid.")
+            if email_obj.signature is None:
+                print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} has no signature.")
+            else:
+                print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} is invalid.")
+
+    print('/////////////////////////////////////')
+    print('newest 5 sended email')
+    print('/////////////////////////////////////')
+
+    received_emails = receive_email1()
+    for email_obj in received_emails:
+        if verify_email_signature(email_obj, public_key):
+            print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} is valid.")
+        else:
+            if email_obj.signature is None:
+                print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} has no signature.")
+            else:
+                print(f"Email with subject '{email_obj.subject}' from {email_obj.sender} is invalid.")
