@@ -22,7 +22,7 @@ IMAP_PORT = 993
 
 # Gmail account credentials
 GMAIL_ADDRESS = "test11037271@gmail.com"
-GMAIL_PASSWORD = "ucqr ghnn thdy lnec"
+GMAIL_PASSWORD = "****"
 
 class Email:
     def __init__(self, sender, recipient, subject, body, signature=None):
